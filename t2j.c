@@ -137,8 +137,11 @@ node_t *consume_int(void) {
   if (c == EOF || c == 'e')
     die("t2j: invalid integer (EOF)");
 
-  if ((c == '-' || c == '0') && peek(2) == 'e')
-    die("t2j: invalid integer (0)");
+  if (c == '-' && peek(2) == 'e')
+    die("t2j: invalid integer (negative)");
+
+  if (c == '0' && peek(2) != 'e')
+    die("t2j: invalid integer (leading zero)");
 
   char int_as_str[16];
   int i = 0;
