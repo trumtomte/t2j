@@ -403,7 +403,7 @@ int main(int argc, char *argv[]) {
       if (!reader.fp)
         die("t2j: unable to open");
 
-    } else if (strstr(argv[i], "--pretty-print")) {
+    } else if (strcmp(argv[i], "--pretty-print") == 0) {
       PRETTY_PRINT = 1;
     }
   }
