@@ -68,11 +68,8 @@ char peek(int n) {
   if (n < 1)
     die("peek");
 
-  char c;
-  int i = n;
-  while (i--)
-    c = fgetc(reader.fp);
-
+  fseek(reader.fp, n - 1, SEEK_CUR);
+  char c = fgetc(reader.fp);
   fseek(reader.fp, -n, SEEK_CUR);
   return c;
 }
