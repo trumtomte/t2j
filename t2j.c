@@ -6,11 +6,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-// TODO: add some naive garbage collector to keep track of memory more easily
 // TODO: don't reallocate on each new list/dict value, start with 8 and double
 //       it when needed then resize to fit
 // TODO: in general some more safey checks are needed
-// TODO: make it so we free (perhaps with the GC) memory when we `die` as well
+// TODO: add -o for output to file
 
 enum nodeType { NODE_STR, NODE_INT, NODE_LIST, NODE_DICT };
 
@@ -43,6 +42,11 @@ typedef struct node_dict {
   node_dict_entry_t **entries;
 } node_dict_t;
 
+typedef struct gcptr {
+  void *ptr;
+  struct gcptr *next;
+} gcptr_t;
+
 typedef struct reader {
   FILE *fp;
 } reader_t;
@@ -51,15 +55,52 @@ int PRETTY_PRINT = 0;
 
 // Prototypes
 node_t *consume(void);
-void free_node(node_t *n);
+// void free_node(node_t *n);
+void gc_free(void);
 void print_json(node_t *n, int indent);
 
 reader_t reader;
+
+gcptr_t *head = NULL;
+gcptr_t *tail = NULL;
+
+gcptr_t *gc_malloc_ptr(size_t size) {
+  gcptr_t *item = malloc(sizeof *item);
+  item->ptr = malloc(size);
+  item->next = NULL;
+
+  if (!head) {
+    head = item;
+    tail = head;
+  } else {
+    tail->next = item;
+    tail = tail->next;
+  }
+
+  return item;
+}
+
+void *gc_malloc(size_t size) {
+  gcptr_t *item = gc_malloc_ptr(size);
+  return item->ptr;
+}
+
+void gc_free(void) {
+  gcptr_t *tmp = head;
+
+  while (tmp != NULL) {
+    free(tmp->ptr);
+    head = head->next;
+    free(tmp);
+    tmp = head;
+  }
+}
 
 // NOTE: could add a 'atext'?
 void die(const char *reason) {
   if (reader.fp)
     fclose(reader.fp);
+  gc_free();
   perror(reason);
   exit(1);
 }
@@ -99,7 +140,7 @@ node_t *consume_str(void) {
   if (size < 1)
     die("t2j: invalid string (size < 1)");
 
-  char *str = malloc(size + 1);
+  char *str = gc_malloc(size + 1);
 
   i = 0;
   while (i < size)
@@ -113,11 +154,11 @@ node_t *consume_str(void) {
 
   str[i] = '\0';
 
-  node_str_t *v = malloc(sizeof *v);
+  node_str_t *v = gc_malloc(sizeof *v);
   v->size = size;
   v->value = str;
 
-  node_t *n = malloc(sizeof *n);
+  node_t *n = gc_malloc(sizeof *n);
   n->type = NODE_STR;
   n->value = v;
 
@@ -151,11 +192,11 @@ node_t *consume_int(void) {
 
   int_as_str[i] = '\0';
 
-  node_int_t *v = malloc(sizeof *v);
+  node_int_t *v = gc_malloc(sizeof *v);
   // TODO: might wanna check for errors here
   v->value = atoi(int_as_str);
 
-  node_t *n = malloc(sizeof *n);
+  node_t *n = gc_malloc(sizeof *n);
   n->type = NODE_INT;
   n->value = v;
 
@@ -163,11 +204,11 @@ node_t *consume_int(void) {
 }
 
 node_t *empty_list(void) {
-  node_list_t *v = malloc(sizeof *v);
+  node_list_t *v = gc_malloc(sizeof *v);
   v->size = 0;
   v->nodes = NULL;
 
-  node_t *n = malloc(sizeof *n);
+  node_t *n = gc_malloc(sizeof *n);
   n->type = NODE_LIST;
   n->value = v;
 
@@ -185,11 +226,13 @@ node_t *consume_list(void) {
   if (c == 'e')
     return empty_list();
 
-  node_list_t *v = malloc(sizeof *v);
+  node_list_t *v = gc_malloc(sizeof *v);
   v->size = 0;
-  v->nodes = malloc(sizeof(node_t) * (v->size + 1));
 
-  node_t *n = malloc(sizeof *n);
+  gcptr_t *nodes = gc_malloc_ptr(sizeof(node_t) * (v->size + 1));
+  v->nodes = nodes->ptr;
+
+  node_t *n = gc_malloc(sizeof *n);
   n->type = NODE_LIST;
   n->value = v;
 
@@ -199,6 +242,8 @@ node_t *consume_list(void) {
     v->nodes = realloc(v->nodes, sizeof(node_t) * (v->size + 1));
     c = peek(1);
   }
+
+  nodes->ptr = v->nodes;
 
   if (c == EOF || c != 'e')
     die("t2j: invalid list (EOF)");
@@ -210,18 +255,18 @@ node_t *consume_list(void) {
 }
 
 node_dict_entry_t *consume_dict_entry(void) {
-  node_dict_entry_t *e = malloc(sizeof(*e));
+  node_dict_entry_t *e = gc_malloc(sizeof(*e));
   e->key = consume_str();
   e->value = consume();
   return e;
 }
 
 node_t *empty_dict(void) {
-  node_dict_t *v = malloc(sizeof *v);
+  node_dict_t *v = gc_malloc(sizeof *v);
   v->size = 0;
   v->entries = NULL;
 
-  node_t *n = malloc(sizeof *n);
+  node_t *n = gc_malloc(sizeof *n);
   n->type = NODE_DICT;
   n->value = v;
 
@@ -239,11 +284,13 @@ node_t *consume_dict(void) {
   if (c == 'e')
     return empty_dict();
 
-  node_dict_t *v = malloc(sizeof *v);
+  node_dict_t *v = gc_malloc(sizeof *v);
   v->size = 0;
-  v->entries = malloc(sizeof(node_dict_entry_t) * (v->size + 1));
 
-  node_t *n = malloc(sizeof *n);
+  gcptr_t *entries = gc_malloc_ptr(sizeof(node_dict_entry_t) * (v->size + 1));
+  v->entries = entries->ptr;
+
+  node_t *n = gc_malloc(sizeof *n);
   n->type = NODE_DICT;
   n->value = v;
 
@@ -253,6 +300,8 @@ node_t *consume_dict(void) {
     v->entries = realloc(v->entries, sizeof(node_dict_entry_t) * (v->size + 1));
     c = peek(1);
   }
+
+  entries->ptr = v->entries;
 
   if (c == EOF || c != 'e')
     die("t2j: invalid dict (EOF)");
@@ -280,39 +329,6 @@ node_t *consume(void) {
   default:
     return consume_str();
   }
-}
-
-void free_node(node_t *n) {
-  switch (n->type) {
-  case NODE_INT:
-    // Nothing.
-    break;
-  case NODE_STR: {
-    node_str_t *str = n->value;
-    free(str->value);
-  } break;
-  case NODE_LIST: {
-    node_list_t *list = n->value;
-    while (list->size--)
-      free_node(list->nodes[list->size]);
-    free(list->nodes);
-  } break;
-  case NODE_DICT: {
-    node_dict_t *dict = n->value;
-    while (dict->size--) {
-      node_dict_entry_t *entry = dict->entries[dict->size];
-      free_node(entry->key);
-      free_node(entry->value);
-      free(entry);
-    }
-    free(dict->entries);
-  } break;
-  default:
-    die("t2j: unknown node (free)");
-  }
-
-  free(n->value);
-  free(n);
 }
 
 void indent_line(int n) {
@@ -394,7 +410,6 @@ int main(int argc, char *argv[]) {
   if (argc < 2)
     die("t2j: not enough arguments");
 
-  // TODO: add -o for output to file
   for (int i = 1; i < argc; i++) {
     if (argv[i][0] != '-') {
       char *filename = argv[i];
@@ -415,7 +430,7 @@ int main(int argc, char *argv[]) {
     die("t2j: unable to parse");
 
   print_json(root, 0);
-  free_node(root);
+  gc_free();
 
   return 0;
 }
