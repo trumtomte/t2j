@@ -2,99 +2,15 @@
 #define _BSD_SOURCE
 #define _GNU_SOURCE
 
-#include <stdio.h>
-#include <stdlib.h>
+#include "gc.h"
+#include "node.h"
+#include "print.h"
 #include <string.h>
 
-// TODO: don't reallocate on each new list/dict value, start with 8 and double
-//       it when needed then resize to fit
 // TODO: in general some more safey checks are needed
 // TODO: add -o for output to file
 
-enum nodeType { NODE_STR, NODE_INT, NODE_LIST, NODE_DICT };
-
-typedef struct node {
-  enum nodeType type;
-  void *value;
-} node_t;
-
-typedef struct node_str {
-  size_t size;
-  char *value;
-} node_str_t;
-
-typedef struct node_int {
-  int value;
-} node_int_t;
-
-typedef struct node_list {
-  size_t size;
-  node_t **nodes;
-} node_list_t;
-
-typedef struct node_dict_entry {
-  node_t *key;
-  node_t *value;
-} node_dict_entry_t;
-
-typedef struct node_dict {
-  size_t size;
-  node_dict_entry_t **entries;
-} node_dict_t;
-
-typedef struct gcptr {
-  void *ptr;
-  struct gcptr *next;
-} gcptr_t;
-
-typedef struct reader {
-  FILE *fp;
-} reader_t;
-
-int PRETTY_PRINT = 0;
-
-// Prototypes
-node_t *consume(void);
-// void free_node(node_t *n);
-void gc_free(void);
-void print_json(node_t *n, int indent);
-
 reader_t reader;
-
-gcptr_t *head = NULL;
-gcptr_t *tail = NULL;
-
-gcptr_t *gc_malloc_ptr(size_t size) {
-  gcptr_t *item = malloc(sizeof *item);
-  item->ptr = malloc(size);
-  item->next = NULL;
-
-  if (!head) {
-    head = item;
-    tail = head;
-  } else {
-    tail->next = item;
-    tail = tail->next;
-  }
-
-  return item;
-}
-
-void *gc_malloc(size_t size) {
-  gcptr_t *item = gc_malloc_ptr(size);
-  return item->ptr;
-}
-
-void gc_free(void) {
-  gcptr_t *tmp = head;
-
-  while (tmp != NULL) {
-    free(tmp->ptr);
-    head = head->next;
-    free(tmp);
-    tmp = head;
-  }
-}
 
 // NOTE: could add a 'atext'?
 void die(const char *reason) {
@@ -142,15 +58,10 @@ node_t *consume_str(void) {
 
   char *str = gc_malloc(size + 1);
 
+  // NOTE: we don't check for EOF since some binary data might be set to -1
   i = 0;
   while (i < size)
     str[i++] = read();
-
-  /* NOTE We can't check for EOF since some binary data might be set to -1 */
-  /* while (i < size && (c = read()) != EOF) */
-  /*   str[i++] = c; */
-  /* if (c == EOF) */
-  /*   die("t2j: invalid string (EOF)"); */
 
   str[i] = '\0';
 
@@ -203,7 +114,7 @@ node_t *consume_int(void) {
   return n;
 }
 
-node_t *empty_list(void) {
+node_t *new_list(void) {
   node_list_t *v = gc_malloc(sizeof *v);
   v->size = 0;
   v->nodes = NULL;
@@ -224,12 +135,13 @@ node_t *consume_list(void) {
     die("t2j: invalid list (EOF)");
 
   if (c == 'e')
-    return empty_list();
+    return new_list();
 
   node_list_t *v = gc_malloc(sizeof *v);
   v->size = 0;
 
-  gcptr_t *nodes = gc_malloc_ptr(sizeof(node_t) * (v->size + 1));
+  size_t lsize = 8;
+  gcptr_t *nodes = gc_malloc_ptr(sizeof(node_t) * (lsize + 1));
   v->nodes = nodes->ptr;
 
   node_t *n = gc_malloc(sizeof *n);
@@ -239,9 +151,17 @@ node_t *consume_list(void) {
   node_t *item;
   while (c != EOF && c != 'e' && (item = consume()) != NULL) {
     v->nodes[v->size++] = item;
-    v->nodes = realloc(v->nodes, sizeof(node_t) * (v->size + 1));
+
+    if (v->size == lsize) {
+      lsize *= 2;
+      v->nodes = realloc(v->nodes, sizeof(node_t) * (lsize + 1));
+    }
+
     c = peek(1);
   }
+
+  if (v->size != lsize)
+    v->nodes = realloc(v->nodes, sizeof(node_t) * (v->size + 1));
 
   nodes->ptr = v->nodes;
 
@@ -255,13 +175,13 @@ node_t *consume_list(void) {
 }
 
 node_dict_entry_t *consume_dict_entry(void) {
-  node_dict_entry_t *e = gc_malloc(sizeof(*e));
+  node_dict_entry_t *e = gc_malloc(sizeof *e);
   e->key = consume_str();
   e->value = consume();
   return e;
 }
 
-node_t *empty_dict(void) {
+node_t *new_dict(void) {
   node_dict_t *v = gc_malloc(sizeof *v);
   v->size = 0;
   v->entries = NULL;
@@ -282,12 +202,13 @@ node_t *consume_dict(void) {
     die("t2j: invalid dict (EOF)");
 
   if (c == 'e')
-    return empty_dict();
+    return new_dict();
 
   node_dict_t *v = gc_malloc(sizeof *v);
   v->size = 0;
 
-  gcptr_t *entries = gc_malloc_ptr(sizeof(node_dict_entry_t) * (v->size + 1));
+  size_t dsize = 8;
+  gcptr_t *entries = gc_malloc_ptr(sizeof(node_dict_entry_t) * (dsize + 1));
   v->entries = entries->ptr;
 
   node_t *n = gc_malloc(sizeof *n);
@@ -297,9 +218,17 @@ node_t *consume_dict(void) {
   node_dict_entry_t *entry;
   while (c != EOF && c != 'e' && (entry = consume_dict_entry()) != NULL) {
     v->entries[v->size++] = entry;
-    v->entries = realloc(v->entries, sizeof(node_dict_entry_t) * (v->size + 1));
+
+    if (v->size == dsize) {
+      dsize *= 2;
+      v->entries = realloc(v->entries, sizeof(node_dict_entry_t) * (dsize + 1));
+    }
+
     c = peek(1);
   }
+
+  if (v->size != dsize)
+    v->entries = realloc(v->entries, sizeof(node_dict_entry_t) * (v->size + 1));
 
   entries->ptr = v->entries;
 
@@ -331,84 +260,11 @@ node_t *consume(void) {
   }
 }
 
-void indent_line(int n) {
-  while (n--)
-    printf(" ");
-}
-
-void print_json(node_t *n, int indent) {
-  switch (n->type) {
-  case NODE_STR: {
-    node_str_t *s = n->value;
-    // TODO: do we need to escape strings upon output?
-    printf("\"%s\"", s->value);
-    break;
-  }
-  case NODE_INT: {
-    node_int_t *i = n->value;
-    printf("%d", i->value);
-    break;
-  }
-  case NODE_LIST: {
-    printf(PRETTY_PRINT ? "[\n" : "[");
-
-    node_list_t *list = n->value;
-    for (size_t i = 0; i < list->size; i++) {
-      if (PRETTY_PRINT)
-        indent_line(indent + 2);
-
-      print_json(list->nodes[i], PRETTY_PRINT ? indent + 2 : 0);
-
-      if ((i + 1) < list->size)
-        printf(", ");
-
-      if (PRETTY_PRINT)
-        printf("\n");
-    }
-
-    if (PRETTY_PRINT)
-      indent_line(indent);
-
-    printf("]");
-    break;
-  }
-  case NODE_DICT: {
-    printf(PRETTY_PRINT ? "{\n" : "{");
-
-    node_dict_t *dict = n->value;
-    for (size_t i = 0; i < dict->size; i++) {
-      node_dict_entry_t *entry = dict->entries[i];
-
-      if (PRETTY_PRINT)
-        indent_line(indent + 2);
-
-      print_json(entry->key, 0);
-      printf(": ");
-
-      print_json(entry->value, PRETTY_PRINT ? indent + 2 : 0);
-
-      if ((i + 1) < dict->size)
-        printf(", ");
-
-      if (PRETTY_PRINT)
-        printf("\n");
-    }
-
-    if (PRETTY_PRINT)
-      indent_line(indent);
-
-    printf("}");
-    break;
-  }
-  default:
-    printf("unknown\n");
-    break;
-  }
-}
-
 int main(int argc, char *argv[]) {
   if (argc < 2)
     die("t2j: not enough arguments");
+
+  int pretty_print = 0;
 
   for (int i = 1; i < argc; i++) {
     if (argv[i][0] != '-') {
@@ -419,7 +275,7 @@ int main(int argc, char *argv[]) {
         die("t2j: unable to open");
 
     } else if (strcmp(argv[i], "--pretty-print") == 0) {
-      PRETTY_PRINT = 1;
+      pretty_print = 1;
     }
   }
 
@@ -429,7 +285,7 @@ int main(int argc, char *argv[]) {
   if (root == NULL)
     die("t2j: unable to parse");
 
-  print_json(root, 0);
+  print_json(root, 0, pretty_print);
   gc_free();
 
   return 0;
