@@ -1,0 +1,7 @@
+---
+IndentWidth: 4
+BreakBeforeBraces: Allman
+AlignOperands: Align
+ColumnLimit: 120
+PenaltyBreakAssignment: 20
+---
