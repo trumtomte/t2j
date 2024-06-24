@@ -7,10 +7,13 @@
 #define PushArray(arena, type, count) (type *)ArenaPush((arena), sizeof(type) * (count))
 #define PushStruct(arena, type) (type *)ArenaPush((arena), sizeof(type))
 
+// [CurrentState][NodeType] -> NextState (there is no transition from, only to, UNKNOWN)
+static u8 StateTransitions[6][5] = {{6, 6, 1, 3, 6}, {2, 2, 1, 3, 6}, {2, 2, 1, 3, 6},
+                                    {6, 6, 6, 6, 5}, {6, 6, 6, 6, 5}, {4, 4, 1, 3, 4}};
+
 static void *ArenaPush(arena *Arena, u64 Size)
 {
-    // TODO: We can run OOM (we only allocate 1Gb atm), make more allocations when
-    // needed, e.g. through a linked list
+    // TODO: We can run OOM (we only allocate 1Gb atm), make more allocations when needed, e.g. through a linked list
     void *Memory = Arena->Memory;
     Arena->Offset += Size;
     Arena->Memory = (u8 *)Arena->Memory + Arena->Offset;
@@ -426,11 +429,6 @@ static i64 ConsumeInteger(context *Context)
 
 static parse_result Parse(context *Context)
 {
-    // [CurrentState][NodeType] -> NextState (there is no transition from, only
-    // to, UNKNOWN)
-    u8 StateTransitions[6][5] = {{6, 6, 1, 3, 6}, {2, 2, 1, 3, 6}, {2, 2, 1, 3, 6},
-                                 {6, 6, 6, 6, 5}, {6, 6, 6, 6, 5}, {4, 4, 1, 3, 4}};
-
     enum parse_state NextState = PARSE_EMPTY;
     node *Next = {0};
     node *Current = {0};
@@ -492,7 +490,7 @@ static parse_result Parse(context *Context)
 
             if (!Current->Parent)
             {
-		parse_result Result = {Current, 0};
+                parse_result Result = {Current, 0};
                 return Result;
             }
 
@@ -513,7 +511,7 @@ static parse_result Parse(context *Context)
         }
         else
         {
-	    parse_result Result = {0, "t2j: unknown leading character for bencoding"};
+            parse_result Result = {0, "t2j: unknown leading character for bencoding"};
             return Result;
         }
 
@@ -528,7 +526,7 @@ static parse_result Parse(context *Context)
         {
             if (Next->Type == BENCODE_STR || Next->Type == BENCODE_INT)
             {
-		parse_result Result = {Next, 0};
+                parse_result Result = {Next, 0};
                 return Result;
             }
 
@@ -558,7 +556,7 @@ static parse_result Parse(context *Context)
         }
 
         NextState = StateTransitions[NextState][Current->Type];
-	Assert(NextState != PARSE_UNKNOWN);
+        Assert(NextState != PARSE_UNKNOWN);
         Character = (byte)fgetc(Context->Stream);
         Context->BytesRead++;
     }
@@ -574,7 +572,7 @@ parse_result Torrent2Json(context *Context)
 
     if (Result.Error)
     {
-	return Result;
+        return Result;
     }
 
     PrintNode(Context, Result.Value);
