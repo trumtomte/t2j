@@ -7,47 +7,6 @@
 #define PushArray(arena, type, count) (type *)ArenaPush((arena), sizeof(type) * (count))
 #define PushStruct(arena, type) (type *)ArenaPush((arena), sizeof(type))
 
-typedef struct node node;
-typedef struct string string;
-
-enum bencode_type
-{
-    BENCODE_STR,
-    BENCODE_INT,
-    BENCODE_LIST,
-    BENCODE_DICT,
-    BENCODE_DICT_ENTRY
-};
-
-enum parse_state
-{
-    PARSE_EMPTY,
-    PARSE_NEW_LIST,
-    PARSE_APPEND_LIST,
-    PARSE_NEW_DICT,
-    PARSE_APPEND_DICT,
-    PARSE_ENTRY_VALUE,
-    PARSE_UNKNOWN
-};
-
-struct string
-{
-    u8 IsBinary;
-    byte *Data;
-    u32 Length;
-};
-
-struct node
-{
-    enum bencode_type Type;
-    node *Next;
-    node *Head;
-    node *Parent;
-    string *String;
-    i64 Integer;
-    u32 ByteLength;
-};
-
 static void *ArenaPush(arena *Arena, u64 Size)
 {
     // TODO: We can run OOM (we only allocate 1Gb atm), make more allocations when
@@ -465,7 +424,7 @@ static i64 ConsumeInteger(context *Context)
     return Signed ? -Integer : Integer;
 }
 
-static node *Parse(context *Context)
+static parse_result Parse(context *Context)
 {
     // [CurrentState][NodeType] -> NextState (there is no transition from, only
     // to, UNKNOWN)
@@ -533,7 +492,8 @@ static node *Parse(context *Context)
 
             if (!Current->Parent)
             {
-                return Current;
+		parse_result Result = {Current, 0};
+                return Result;
             }
 
             if (Current->Parent->Type == BENCODE_LIST)
@@ -553,8 +513,8 @@ static node *Parse(context *Context)
         }
         else
         {
-            fprintf(stderr, "t2j: invalid bencoding\n");
-            exit(1);
+	    parse_result Result = {0, "t2j: unknown leading character for bencoding"};
+            return Result;
         }
 
         if (!Next)
@@ -568,7 +528,8 @@ static node *Parse(context *Context)
         {
             if (Next->Type == BENCODE_STR || Next->Type == BENCODE_INT)
             {
-                return Next;
+		parse_result Result = {Next, 0};
+                return Result;
             }
 
             Current = Next;
@@ -597,27 +558,28 @@ static node *Parse(context *Context)
         }
 
         NextState = StateTransitions[NextState][Current->Type];
-        Assert(NextState != PARSE_UNKNOWN);
+	Assert(NextState != PARSE_UNKNOWN);
         Character = (byte)fgetc(Context->Stream);
         Context->BytesRead++;
     }
 
     Current->ByteLength = Context->BytesRead;
-    return Current;
+    parse_result Result = {Current, 0};
+    return Result;
 }
 
-void Torrent2Json(context *Context)
+parse_result Torrent2Json(context *Context)
 {
-    node *Root = Parse(Context);
+    parse_result Result = Parse(Context);
 
-    if (!Root)
+    if (Result.Error)
     {
-        fprintf(stderr, "t2j: unable to parse input data\n");
-        exit(1);
+	return Result;
     }
 
-    PrintNode(Context, Root);
+    PrintNode(Context, Result.Value);
     printf("\n");
+    return Result;
 }
 
 void PrintUsage(void)

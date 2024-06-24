@@ -60,6 +60,13 @@ int main(int argc, char **argv)
         exit(1);
     }
 
-    Torrent2Json(&Context);
+    parse_result Result = Torrent2Json(&Context);
+
+    if (Result.Error)
+    {
+	fprintf(stderr, "%s\n", Result.Error);
+        exit(1);
+    }
+    
     return 0;
 }
