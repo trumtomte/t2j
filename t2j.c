@@ -45,7 +45,7 @@ struct node
     node *Parent;
     string *String;
     i64 Integer;
-    u64 ByteLength;
+    u32 ByteLength;
 };
 
 static void *ArenaPush(arena *Arena, u64 Size)
@@ -310,7 +310,7 @@ static void PrintNode(context *Context, node *Node)
                 if (Context->Flags.PrintInfoHash && Current->Head->Type == BENCODE_DICT &&
                     KeyEquals(Current->String, "info"))
                 {
-                    u32 Length = (u32)Current->Head->ByteLength;
+                    u32 Length = Current->Head->ByteLength;
                     byte Hash[41];
                     byte *Buffer = PushArray(Context->Arena, byte, Length);
                     Bencode(Buffer, Current->Head);
