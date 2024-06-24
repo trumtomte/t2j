@@ -32,7 +32,7 @@ enum parse_state
 
 struct string
 {
-    u8 NonAscii;
+    u8 IsBinary;
     byte *Data;
     u32 Length;
 };
@@ -252,7 +252,7 @@ static void PrintNode(context *Context, node *Node)
             switch (Current->Type)
             {
             case BENCODE_STR:
-                if (Current->String->NonAscii)
+                if (Current->String->IsBinary)
                 {
                     if (Context->Flags.PrintBinary)
                     {
@@ -353,7 +353,7 @@ static void PrintNode(context *Context, node *Node)
 static string *ConsumeString(context *Context)
 {
     string *String = PushStruct(Context->Arena, string);
-    String->NonAscii = 0;
+    String->IsBinary = 0;
     String->Data = 0;
     String->Length = 0;
 
@@ -396,9 +396,9 @@ static string *ConsumeString(context *Context)
         String->Data[Index] = Character;
         Context->BytesRead++;
 
-        if (!String->NonAscii && (Character < 32 || Character > 126))
+        if (!String->IsBinary && (Character < 32 || Character > 126))
         {
-            String->NonAscii = 1;
+            String->IsBinary = 1;
         }
     }
 
