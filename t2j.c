@@ -273,7 +273,7 @@ static void PrintJSON(context *Context, node *Node)
                     u32 Length = Current->Head->ByteLength;
                     byte *Buffer = PushArray(Context->Arena, byte, Length);
                     Bencode(Buffer, Current->Head);
-		    byte Hash[41];
+                    byte Hash[41];
                     SHA1Digest(Context, Hash, Buffer, Length);
                     printf(",\"info_hash\":\"%s\"", Hash);
                 }
@@ -325,7 +325,7 @@ static string_result ConsumeString(context *Context)
         if (Character < '0' || Character > '9')
         {
             string_result Result = {0, "invalid string, non-numerical character for size"};
-	    return Result;
+            return Result;
         }
 
         String->Length = (String->Length * 10) + (u32)(Character - '0');
@@ -335,16 +335,16 @@ static string_result ConsumeString(context *Context)
 
     if (Character == EOF)
     {
-	string_result Result = {0, "invalid string, no string after size declaration"};
-	return Result;
+        string_result Result = {0, "invalid string, no string after size declaration"};
+        return Result;
     }
 
     Assert(Character == ':');
 
     if (String->Length == 0)
     {
-	string_result Result = {String, 0};
-	return Result;
+        string_result Result = {String, 0};
+        return Result;
     }
 
     String->Data = PushArray(Context->Arena, byte, String->Length);
@@ -373,8 +373,8 @@ static integer_result ConsumeInteger(context *Context)
 
     if (Character == EOF || Character == 'e')
     {
-	integer_result Result = {0, "invalid integer, empty"};
-	return Result;
+        integer_result Result = {0, "invalid integer, empty"};
+        return Result;
     }
 
     byte Peek = (byte)fgetc(Context->Stream);
@@ -382,14 +382,14 @@ static integer_result ConsumeInteger(context *Context)
 
     if (Character == '-' && Peek == '0')
     {
-	integer_result Result = {0, "invalid integer, negative zero"};
-	return Result;
+        integer_result Result = {0, "invalid integer, negative zero"};
+        return Result;
     }
 
     if (Character == '0' && Peek != 'e')
     {
-	integer_result Result = {0, "invalid integer, leading zero"};
-	return Result;
+        integer_result Result = {0, "invalid integer, leading zero"};
+        return Result;
     }
 
     u8 Signed = 0;
@@ -407,8 +407,8 @@ static integer_result ConsumeInteger(context *Context)
     {
         if (Character < '0' || Character > '9')
         {
-	    integer_result Result = {0, "invalid integer, non-numerical"};
-	    return Result;
+            integer_result Result = {0, "invalid integer, non-numerical"};
+            return Result;
         }
 
         Integer = (Integer * 10) + (i64)(Character - '0');
@@ -418,8 +418,8 @@ static integer_result ConsumeInteger(context *Context)
 
     if (Character == EOF)
     {
-	integer_result Result = {0, "invalid integer, EOF"};
-	return Result;
+        integer_result Result = {0, "invalid integer, EOF"};
+        return Result;
     }
 
     Assert(Character == 'e');
@@ -459,14 +459,14 @@ static parse_result Parse(context *Context)
                 Next->Type = BENCODE_STR;
             }
 
-	    StringResult = ConsumeString(Context);
+            StringResult = ConsumeString(Context);
 
-	    if (StringResult.Error)
-	    {
-		parse_result Result = {0, StringResult.Error};
+            if (StringResult.Error)
+            {
+                parse_result Result = {0, StringResult.Error};
                 return Result;
-	    }
-	    
+            }
+
             Next->String = StringResult.Value;
             Next->ByteLength = Context->BytesRead - Next->ByteLength;
         }
@@ -476,14 +476,14 @@ static parse_result Parse(context *Context)
             Next->Type = BENCODE_INT;
             Next->ByteLength = Context->BytesRead;
 
-	    IntegerResult = ConsumeInteger(Context);
+            IntegerResult = ConsumeInteger(Context);
 
-	    if (IntegerResult.Error)
-	    {
-		parse_result Result = {0, IntegerResult.Error};
+            if (IntegerResult.Error)
+            {
+                parse_result Result = {0, IntegerResult.Error};
                 return Result;
-	    }
-	    
+            }
+
             Next->Integer = IntegerResult.Value;
             Next->ByteLength = Context->BytesRead - Next->ByteLength + 1;
         }
