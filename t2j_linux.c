@@ -1,4 +1,6 @@
+#include <sys/mman.h>
 #include "t2j.h"
+
 #define ARENA_SIZE 1024 * 1024 * 1024
 
 int main(int argc, char **argv)
@@ -61,15 +63,15 @@ int main(int argc, char **argv)
     if (!Context.Stream)
     {
         fprintf(stderr, "t2j: unable to read file %s\n", Filename);
-        exit(1);
+	return 1;
     }
 
-    parse_result Result = Torrent2Json(&Context);
+    parse_result Result = Torrent2JSON(&Context);
 
     if (Result.Error)
     {
-	fprintf(stderr, "%s\n", Result.Error);
-        exit(1);
+	fprintf(stderr, "t2j: %s\n", Result.Error);
+	return 1;
     }
     
     return 0;

@@ -271,9 +271,9 @@ static void PrintJSON(context *Context, node *Node)
                     StringEquals(Current->String->Data, "info"))
                 {
                     u32 Length = Current->Head->ByteLength;
-                    byte Hash[41];
                     byte *Buffer = PushArray(Context->Arena, byte, Length);
                     Bencode(Buffer, Current->Head);
+		    byte Hash[41];
                     SHA1Digest(Context, Hash, Buffer, Length);
                     printf(",\"info_hash\":\"%s\"", Hash);
                 }
@@ -310,7 +310,7 @@ static void PrintJSON(context *Context, node *Node)
     }
 }
 
-static string *ConsumeString(context *Context)
+static string_result ConsumeString(context *Context)
 {
     string *String = PushStruct(Context->Arena, string);
     String->IsBinary = 0;
@@ -324,8 +324,8 @@ static string *ConsumeString(context *Context)
     {
         if (Character < '0' || Character > '9')
         {
-            fprintf(stderr, "t2j: invalid string size !0-9\n");
-            exit(1);
+            string_result Result = {0, "invalid string, non-numerical character for size"};
+	    return Result;
         }
 
         String->Length = (String->Length * 10) + (u32)(Character - '0');
@@ -335,16 +335,16 @@ static string *ConsumeString(context *Context)
 
     if (Character == EOF)
     {
-        fprintf(stderr, "t2j: no string to consume after size\n");
-        exit(1);
+	string_result Result = {0, "invalid string, no string after size declaration"};
+	return Result;
     }
 
     Assert(Character == ':');
 
-    // Empty string
     if (String->Length == 0)
     {
-        return String;
+	string_result Result = {String, 0};
+	return Result;
     }
 
     String->Data = PushArray(Context->Arena, byte, String->Length);
@@ -362,18 +362,19 @@ static string *ConsumeString(context *Context)
         }
     }
 
-    return String;
+    string_result Result = {String, 0};
+    return Result;
 }
 
-static i64 ConsumeInteger(context *Context)
+static integer_result ConsumeInteger(context *Context)
 {
     byte Character = (byte)fgetc(Context->Stream);
     Context->BytesRead++;
 
     if (Character == EOF || Character == 'e')
     {
-        fprintf(stderr, "t2j: invalid integer, EOF\n");
-        exit(1);
+	integer_result Result = {0, "invalid integer, empty"};
+	return Result;
     }
 
     byte Peek = (byte)fgetc(Context->Stream);
@@ -381,14 +382,14 @@ static i64 ConsumeInteger(context *Context)
 
     if (Character == '-' && Peek == '0')
     {
-        fprintf(stderr, "t2j: invalid integer, i-0 (negative zero)\n");
-        exit(1);
+	integer_result Result = {0, "invalid integer, negative zero"};
+	return Result;
     }
 
     if (Character == '0' && Peek != 'e')
     {
-        fprintf(stderr, "t2j: invalid integer, leading zero\n");
-        exit(1);
+	integer_result Result = {0, "invalid integer, leading zero"};
+	return Result;
     }
 
     u8 Signed = 0;
@@ -406,8 +407,8 @@ static i64 ConsumeInteger(context *Context)
     {
         if (Character < '0' || Character > '9')
         {
-            fprintf(stderr, "t2j: invalid integer !0-9\n");
-            exit(1);
+	    integer_result Result = {0, "invalid integer, non-numerical"};
+	    return Result;
         }
 
         Integer = (Integer * 10) + (i64)(Character - '0');
@@ -417,16 +418,20 @@ static i64 ConsumeInteger(context *Context)
 
     if (Character == EOF)
     {
-        fprintf(stderr, "t2j: invalid integer, EOF\n");
-        exit(1);
+	integer_result Result = {0, "invalid integer, EOF"};
+	return Result;
     }
 
     Assert(Character == 'e');
-    return Signed ? -Integer : Integer;
+    integer_result Result = {Signed ? -Integer : Integer, 0};
+    return Result;
 }
 
 static parse_result Parse(context *Context)
 {
+    string_result StringResult = {0};
+    integer_result IntegerResult = {0};
+
     enum parse_state NextState = PARSE_EMPTY;
     node *Next = {0};
     node *Current = {0};
@@ -454,7 +459,15 @@ static parse_result Parse(context *Context)
                 Next->Type = BENCODE_STR;
             }
 
-            Next->String = ConsumeString(Context);
+	    StringResult = ConsumeString(Context);
+
+	    if (StringResult.Error)
+	    {
+		parse_result Result = {0, StringResult.Error};
+                return Result;
+	    }
+	    
+            Next->String = StringResult.Value;
             Next->ByteLength = Context->BytesRead - Next->ByteLength;
         }
         else if (Character == 'i')
@@ -462,7 +475,16 @@ static parse_result Parse(context *Context)
             Next = PushStruct(Context->Arena, node);
             Next->Type = BENCODE_INT;
             Next->ByteLength = Context->BytesRead;
-            Next->Integer = ConsumeInteger(Context);
+
+	    IntegerResult = ConsumeInteger(Context);
+
+	    if (IntegerResult.Error)
+	    {
+		parse_result Result = {0, IntegerResult.Error};
+                return Result;
+	    }
+	    
+            Next->Integer = IntegerResult.Value;
             Next->ByteLength = Context->BytesRead - Next->ByteLength + 1;
         }
         else if (Character == 'l')
@@ -509,7 +531,7 @@ static parse_result Parse(context *Context)
         }
         else
         {
-            parse_result Result = {0, "t2j: unknown leading character for bencoding"};
+            parse_result Result = {0, "unknown leading character for bencoding"};
             return Result;
         }
 

@@ -3,8 +3,6 @@
 
 #include <stdint.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include <sys/mman.h>
 
 typedef char byte;
 typedef uint8_t u8;
@@ -18,6 +16,8 @@ typedef struct arena arena;
 typedef struct context context;
 typedef struct node node;
 typedef struct string string;
+typedef struct string_result string_result;
+typedef struct integer_result integer_result;
 typedef struct parse_result parse_result;
 
 enum bencode_type
@@ -79,6 +79,18 @@ struct node
     string *String;
     i64 Integer;
     u32 ByteLength;
+};
+
+struct string_result
+{
+    string *Value;
+    byte *Error;
+};
+
+struct integer_result
+{
+    i64 Value;
+    byte *Error;
 };
 
 struct parse_result
