@@ -1,5 +1,5 @@
-#include <sys/mman.h>
 #include "t2j.h"
+#include <sys/mman.h>
 
 #define ARENA_SIZE 1024 * 1024 * 1024
 
@@ -8,14 +8,14 @@ int main(int argc, char **argv)
     if (argc < 2)
     {
         PrintUsage();
-	return 0;
+        return 0;
     }
 
     arena Arena = {0};
     Arena.Memory = mmap(0, ARENA_SIZE, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     context Context = {0};
     Context.Arena = &Arena;
-    
+
     byte *Filename = 0;
     for (u16 ArgIndex = 1; ArgIndex < argc; ArgIndex++)
     {
@@ -37,12 +37,12 @@ int main(int argc, char **argv)
                 break;
             case 'h':
                 PrintUsage();
-		return 0;
+                return 0;
                 break;
             default:
                 fprintf(stderr, "t2j: illegal option -%c\n", *Arg);
                 PrintUsage();
-		return 0;
+                return 0;
             }
         }
         else
@@ -55,7 +55,7 @@ int main(int argc, char **argv)
     {
         // TODO: read from stdin, if empty, then PrintUsage
         PrintUsage();
-	return 0;
+        return 0;
     }
 
     Context.Stream = fopen(Filename, "r");
@@ -63,16 +63,16 @@ int main(int argc, char **argv)
     if (!Context.Stream)
     {
         fprintf(stderr, "t2j: unable to read file %s\n", Filename);
-	return 1;
+        return 1;
     }
 
     parse_result Result = Torrent2JSON(&Context);
 
     if (Result.Error)
     {
-	fprintf(stderr, "t2j: %s\n", Result.Error);
-	return 1;
+        fprintf(stderr, "t2j: %s\n", Result.Error);
+        return 1;
     }
-    
+
     return 0;
 }
