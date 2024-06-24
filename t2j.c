@@ -392,7 +392,7 @@ static string *ConsumeString(context *Context)
     // NOTE: we don't check for EOF since some binary data might be set to -1
     for (u32 Index = 0; Index < String->Length; Index++)
     {
-	Character = (byte)fgetc(Context->Stream);
+        Character = (byte)fgetc(Context->Stream);
         String->Data[Index] = Character;
         Context->BytesRead++;
 
@@ -493,14 +493,13 @@ static node *Parse(context *Context)
             if (NextState == PARSE_NEW_DICT || NextState == PARSE_APPEND_DICT)
             {
                 Next->Type = BENCODE_DICT_ENTRY;
-                Next->String = ConsumeString(Context);
             }
             else
             {
                 Next->Type = BENCODE_STR;
-                Next->String = ConsumeString(Context);
             }
 
+            Next->String = ConsumeString(Context);
             Next->ByteLength = Context->BytesRead - Next->ByteLength;
         }
         else if (Character == 'i')
@@ -631,8 +630,7 @@ void PrintUsage(void)
     fprintf(stderr, "    t2j -h\n\n");
     fprintf(stderr, "OPTIONS:\n");
     fprintf(stderr, "    -b Print binary data (otherwise marked as [BLOB] in the output).\n");
-    fprintf(stderr, "    -i Print the info hash as part of the output (sha1 hash "
-                    "of the 'info' field).\n");
+    fprintf(stderr, "    -i Print the info (sha1) hash as part of the output.\n");
     fprintf(stderr, "    -x Print binary in hexadecimal as \"0x0A0x0B0x0C (etc.)\".\n");
     exit(1);
 }

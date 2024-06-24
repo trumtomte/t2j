@@ -21,7 +21,7 @@ USAGE:
 	
 OPTIONS:
 	-b Print binary data (otherwise marked as [BLOB] in the output).
-	-i Print the info hash as part of the output (sha1 hash of the 'info' field).
+	-i Print the info (sha1) hash as part of the output.
 	-x Print binary in hexadecimal as "0x0A0x0B0x0C (etc.)".
 ```
 
