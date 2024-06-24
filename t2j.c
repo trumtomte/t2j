@@ -392,10 +392,11 @@ static string *ConsumeString(context *Context)
     // NOTE: we don't check for EOF since some binary data might be set to -1
     for (u32 Index = 0; Index < String->Length; Index++)
     {
-        String->Data[Index] = (byte)fgetc(Context->Stream);
+	Character = (byte)fgetc(Context->Stream);
+        String->Data[Index] = Character;
         Context->BytesRead++;
 
-        if (!String->NonAscii && (String->Data[Index] < 32 || String->Data[Index] > 126))
+        if (!String->NonAscii && (Character < 32 || Character > 126))
         {
             String->NonAscii = 1;
         }
