@@ -592,5 +592,4 @@ void PrintUsage(void)
     fprintf(stderr, "    -b Print binary data (otherwise marked as [BLOB] in the output).\n");
     fprintf(stderr, "    -i Print the info (sha1) hash as part of the output.\n");
     fprintf(stderr, "    -x Print binary in hexadecimal as \"0x0A0x0B0x0C (etc.)\".\n");
-    exit(1);
 }

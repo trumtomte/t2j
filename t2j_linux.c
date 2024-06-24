@@ -6,6 +6,7 @@ int main(int argc, char **argv)
     if (argc < 2)
     {
         PrintUsage();
+	return 0;
     }
 
     arena Arena = {0};
@@ -34,10 +35,12 @@ int main(int argc, char **argv)
                 break;
             case 'h':
                 PrintUsage();
+		return 0;
                 break;
             default:
                 fprintf(stderr, "t2j: illegal option -%c\n", *Arg);
                 PrintUsage();
+		return 0;
             }
         }
         else
@@ -50,6 +53,7 @@ int main(int argc, char **argv)
     {
         // TODO: read from stdin, if empty, then PrintUsage
         PrintUsage();
+	return 0;
     }
 
     Context.Stream = fopen(Filename, "r");
