@@ -17,12 +17,12 @@ $ ./build.sh tests   # build and run the binary through the 'tests' folder
 ```
 USAGE:
     t2j [OPTIONS] FILE
-	t2j -h
+    t2j -h
 	
 OPTIONS:
-	-b Print binary data (otherwise marked as [BLOB] in the output).
-	-i Print the info (sha1) hash as part of the output.
-	-x Print binary in hexadecimal as "0x0A0x0B0x0C (etc.)".
+    -b Print binary data (otherwise marked as [BLOB] in the output).
+    -i Print the info (sha1) hash as part of the output.
+    -x Print binary in hexadecimal as "0x0A0x0B0x0C (etc.)".
 ```
 
 **Examples:**
