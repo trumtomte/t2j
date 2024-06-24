@@ -58,7 +58,7 @@ static void *ArenaPush(arena *Arena, u64 Size)
     return Memory;
 }
 
-static void SHA1Digest(byte *Destination, byte *Input, u32 Length)
+static void SHA1Digest(context *Context, byte *Destination, byte *Input, u32 Length)
 {
     u32 Size = Length < 64 ? 64 : Length;
     // Size must be a multiple of 64
@@ -67,7 +67,7 @@ static void SHA1Digest(byte *Destination, byte *Input, u32 Length)
         Size += 64 - (Size % 64);
     }
 
-    u8 *Message = mmap(0, (Size * sizeof(u8)), PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    u8 *Message = PushArray(Context->Arena, u8, Size);
 
     // Copy the input
     for (u32 Index = 0; Index < Length; Index++)
@@ -314,7 +314,7 @@ static void PrintNode(context *Context, node *Node)
                     byte Hash[41];
                     byte *Buffer = PushArray(Context->Arena, byte, Length);
                     Bencode(Buffer, Current->Head);
-                    SHA1Digest(Hash, Buffer, Length);
+                    SHA1Digest(Context, Hash, Buffer, Length);
                     printf(",\"info_hash\":\"%s\"", Hash);
                 }
 
