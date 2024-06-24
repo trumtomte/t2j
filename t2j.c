@@ -121,11 +121,9 @@ static void SHA1Digest(context *Context, byte *Destination, byte *Input, u32 Len
     snprintf(Destination, 41, "%08x%08x%08x%08x%08x", H0, H1, H2, H3, H4);
 }
 
-static int KeyEquals(string *Key, byte *A)
+static int Equals(byte *A, byte *B)
 {
-    byte *B = Key->Data;
-
-    while (*A != 0)
+    while (*B != 0)
     {
         if (*A++ != *B++)
         {
@@ -270,7 +268,7 @@ static void PrintNode(context *Context, node *Node)
             else if (Current->Type == BENCODE_DICT_ENTRY)
             {
                 if (Context->Flags.PrintInfoHash && Current->Head->Type == BENCODE_DICT &&
-                    KeyEquals(Current->String, "info"))
+                    Equals(Current->String->Data, "info"))
                 {
                     u32 Length = Current->Head->ByteLength;
                     byte Hash[41];
