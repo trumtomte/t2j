@@ -87,7 +87,7 @@ struct parse_result
     byte *Error;
 };
 
-parse_result Torrent2Json(context *Context);
+parse_result Torrent2JSON(context *Context);
 void PrintUsage(void);
 
 #endif

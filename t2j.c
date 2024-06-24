@@ -121,7 +121,7 @@ static void SHA1Digest(context *Context, byte *Destination, byte *Input, u32 Len
     snprintf(Destination, 41, "%08x%08x%08x%08x%08x", H0, H1, H2, H3, H4);
 }
 
-static int Equals(byte *A, byte *B)
+static int StringEquals(byte *A, byte *B)
 {
     while (*B != 0)
     {
@@ -200,7 +200,7 @@ static void Bencode(byte *Destination, node *Node)
     }
 }
 
-static void PrintNode(context *Context, node *Node)
+static void PrintJSON(context *Context, node *Node)
 {
     node *Current = Node;
     u8 Process = 1;
@@ -268,7 +268,7 @@ static void PrintNode(context *Context, node *Node)
             else if (Current->Type == BENCODE_DICT_ENTRY)
             {
                 if (Context->Flags.PrintInfoHash && Current->Head->Type == BENCODE_DICT &&
-                    Equals(Current->String->Data, "info"))
+                    StringEquals(Current->String->Data, "info"))
                 {
                     u32 Length = Current->Head->ByteLength;
                     byte Hash[41];
@@ -564,7 +564,7 @@ static parse_result Parse(context *Context)
     return Result;
 }
 
-parse_result Torrent2Json(context *Context)
+parse_result Torrent2JSON(context *Context)
 {
     parse_result Result = Parse(Context);
 
@@ -573,7 +573,7 @@ parse_result Torrent2Json(context *Context)
         return Result;
     }
 
-    PrintNode(Context, Result.Value);
+    PrintJSON(Context, Result.Value);
     printf("\n");
     return Result;
 }
