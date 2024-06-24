@@ -27,7 +27,7 @@ struct context
 {
     arena *Arena;
     FILE *Stream;
-    u64 BytesRead;
+    u32 BytesRead;
 
     struct
     {
